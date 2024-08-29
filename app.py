@@ -1,5 +1,5 @@
 """
-summarise any webpage (url) and prompt based on the content using a locally run LLM.
+summarise any webpage and prompt based on the content
 """
 
 import requests
@@ -16,7 +16,6 @@ import dash
 from dash import html
 from dash import dcc
 from dash.dependencies import Output, Input
-
 
 def get_text_from_url(url):
     """
@@ -144,8 +143,8 @@ app.layout = html.Div(
             )
         ], style={'margin-bottom': '20px'}),
         
-        dcc.Input(id='input-url', type='text', debounce=True, placeholder='Paste the URL for context', style={'width': '400px', 'margin-bottom': '20px'}),
-        dcc.Input(id='input-question', type='text', debounce=True, placeholder='Ask a question', style={'width': '400px', 'margin-bottom': '30px'}),
+        dcc.Input(id='input-url', type='text', value=None, debounce=True, placeholder='Paste the URL for context', style={'width': '400px', 'margin-bottom': '20px'}),
+        dcc.Input(id='input-question', type='text', value=None, debounce=True, placeholder='Ask a question', style={'width': '400px', 'margin-bottom': '30px'}),
         
         dcc.Loading(
             id="loading",
@@ -179,21 +178,28 @@ app.layout = html.Div(
     prevent_initial_call=True
 )
 def web_interface_io(llm_model, embedding_model, url, question):
-    extracted_text = get_text_from_url(url)
-    extracted_text_chunks = get_text_chunks(extracted_text)
-    extracted_text_embeddings = get_text_embeddings(extracted_text_chunks, embedding_model=embedding_model)
-    extracted_text_embeddings = torch.tensor(extracted_text_embeddings)
-    context_texts_list = get_context_texts(question, extracted_text_embeddings, extracted_text_chunks, top_k=3, embedding_model=embedding_model)
+    if url and question:
+        extracted_text = get_text_from_url(url)
+        extracted_text_chunks = get_text_chunks(extracted_text)
+        extracted_text_embeddings = get_text_embeddings(extracted_text_chunks, embedding_model=embedding_model)
+        extracted_text_embeddings = torch.tensor(extracted_text_embeddings)
+        context_texts_list = get_context_texts(question, extracted_text_embeddings, extracted_text_chunks, top_k=3, embedding_model=embedding_model)
 
-    full_context = ''
-    for index, context in enumerate(context_texts_list):
-        context = f'{index+1}. {context} \n'
-        full_context += context
+        full_context = ''
+        for index, context in enumerate(context_texts_list):
+            context = f'{index+1}. {context} \n'
+            full_context += context
 
-    llm_out = prompt_llm_with_context(question, full_context, model=llm_model)
-    return llm_out
+        llm_out = prompt_llm_with_context(question, full_context, model=llm_model)
+        return llm_out
+    
+    else:
+        return None
 
 
 # Run the web app
 if __name__ == '__main__':
-    app.run_server(debug=False)
+    app.run_server(
+        debug=True,
+        use_reloader=True,
+    )
